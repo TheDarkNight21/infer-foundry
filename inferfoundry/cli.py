@@ -12,23 +12,26 @@ import numpy as np
 import onnxruntime as ort
 import psutil
 import torch
+from onnx2torch import convert
 
 
 class ONNXBenchmarker:
-    """ONNX model benchmarking class"""
+    """ONNX model benchmarking class using onnx2torch conversion"""
     
     def __init__(self, model_path: str):
         self.model_path = model_path
-        self.session = None
+        self.session = None  # Keep for metadata extraction
+        self.torch_model = None  # PyTorch model after conversion
         self.input_shape = None
         self.input_name = None
         self.output_name = None
         self.model_name = None
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     def load_model(self) -> None:
-        """Load ONNX model and extract metadata"""
+        """Load ONNX model, extract metadata, and convert to PyTorch"""
         try:
-            # Load the ONNX model
+            # Load the ONNX model for metadata extraction
             self.session = ort.InferenceSession(self.model_path)
             
             # Get model metadata
@@ -48,8 +51,15 @@ class ONNXBenchmarker:
             print(f"✓ Input name: {self.input_name}")
             print(f"✓ Output name: {self.output_name}")
             
+            # Convert ONNX model to PyTorch
+            print(f"🔄 Converting ONNX model to PyTorch...")
+            self.torch_model = convert(self.model_path)
+            self.torch_model.to(self.device)
+            self.torch_model.eval()
+            print(f"✓ Model converted to PyTorch and moved to {self.device}")
+            
         except Exception as e:
-            raise RuntimeError(f"Failed to load model: {e}")
+            raise RuntimeError(f"Failed to load and convert model: {e}")
     
     def prepare_dummy_input(self) -> np.ndarray:
         """Prepare dummy input tensor matching model's input shape"""
@@ -86,12 +96,25 @@ class ONNXBenchmarker:
         return gpu_info
     
     def run_inference(self, input_data: np.ndarray) -> Tuple[float, Any]:
-        """Run single inference and return timing + output"""
+        """Run single inference using PyTorch model and return timing + output"""
+        # Convert numpy array to PyTorch tensor
+        input_tensor = torch.from_numpy(input_data).to(self.device)
+        
         start_time = time.perf_counter()
-        output = self.session.run([self.output_name], {self.input_name: input_data})
+        
+        with torch.no_grad():
+            output = self.torch_model(input_tensor)
+        
         end_time = time.perf_counter()
         
         latency_ms = (end_time - start_time) * 1000
+        
+        # Convert output back to numpy for consistency
+        if isinstance(output, torch.Tensor):
+            output = output.cpu().numpy()
+        elif isinstance(output, (list, tuple)):
+            output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
+        
         return latency_ms, output
     
     def benchmark(self, warmup_runs: int = 3, timed_runs: int = 100) -> Dict[str, Any]:
@@ -141,7 +164,8 @@ class ONNXBenchmarker:
         results = {
             'model_name': self.model_name,
             'model_path': self.model_path,
-            'runtime': 'ONNX',
+            'runtime': 'PyTorch (converted from ONNX)',
+            'device': str(self.device),
             'input_shape': self.input_shape,
             'warmup_runs': warmup_runs,
             'timed_runs': timed_runs,
@@ -171,6 +195,7 @@ class ONNXBenchmarker:
         print(f"{'='*50}")
         print(f"Model: {results['model_name']}")
         print(f"Runtime: {results['runtime']}")
+        print(f"Device: {results['device']}")
         print(f"Input Shape: {results['input_shape']}")
         print(f"")
         print(f"⏱️  LATENCY:")
@@ -210,18 +235,18 @@ class ONNXBenchmarker:
 @click.group()
 @click.version_option(version="0.1.0")
 def cli():
-    """InferFoundry - ONNX Model Benchmarking Tool"""
+    """InferFoundry - ONNX Model Benchmarking Tool (converts ONNX to PyTorch)"""
     pass
 
 
 @cli.command()
-@click.option('--model', '-m', required=True, help='Path to ONNX model file')
+@click.option('--model', '-m', required=True, help='Path to ONNX model file (will be converted to PyTorch)')
 @click.option('--warmup', '-w', default=3, help='Number of warmup runs')
 @click.option('--runs', '-r', default=100, help='Number of timed runs')
 @click.option('--output', '-o', help='Output JSON file path')
 @click.option('--quiet', '-q', is_flag=True, help='Suppress progress output')
 def benchmark(model, warmup, runs, output, quiet):
-    """Benchmark an ONNX model"""
+    """Benchmark an ONNX model (converted to PyTorch for execution)"""
     
     # Validate model file exists
     if not os.path.exists(model):
