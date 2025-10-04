@@ -1,6 +1,17 @@
 click>=8.0.0
-onnxruntime>=1.15.0
 numpy>=1.21.0
-torch>=1.12.0
 psutil>=5.8.0
 onnx2torch>=1.0.0
+
+# PyTorch with CUDA support (for GPU acceleration)
+# Install with: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0
+
+# ONNX Runtime with CUDA support (for GPU acceleration)
+# Install with: pip install onnxruntime-gpu
+onnxruntime-gpu>=1.15.0
+
+# Alternative CPU-only versions (if CUDA is not available)
+# Uncomment these and comment out the above if you don't have CUDA
+# torch>=2.0.0
+# onnxruntime>=1.15.0

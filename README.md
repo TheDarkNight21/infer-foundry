@@ -14,16 +14,38 @@ A powerful CLI tool for benchmarking ONNX models with comprehensive performance 
 
 ## Installation
 
+### GPU Installation (Recommended)
+
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd infer-foundry
 
+# Install CUDA-enabled dependencies
+pip install -r requirements.txt
+
+# Or install manually for better control
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install onnxruntime-gpu
+pip install -r requirements.txt
+```
+
+### CPU Installation (Fallback)
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd infer-foundry
+
+# Install CPU-only dependencies
+pip install -r requirements-cpu.txt
+```
+
+### Development Installation
+
+```bash
 # Install in development mode
 pip install -e .
-
-# Or install dependencies directly
-pip install -r requirements.txt
 ```
 
 ## Quick Start with Test Models

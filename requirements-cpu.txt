@@ -1,0 +1,13 @@
+# CPU-only requirements for InferFoundry
+# Use this if you don't have CUDA support or want CPU-only execution
+
+click>=8.0.0
+numpy>=1.21.0
+psutil>=5.8.0
+onnx2torch>=1.0.0
+
+# CPU-only PyTorch
+torch>=2.0.0
+
+# CPU-only ONNX Runtime
+onnxruntime>=1.15.0
