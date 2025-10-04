@@ -59,10 +59,16 @@ class ONNXBenchmarker:
                 
                 # Show which providers are actually being used
                 active_providers = self.session.get_providers()
+                print(f"✓ Available providers: {active_providers}")
                 if 'CUDAExecutionProvider' in active_providers:
                     print(f"✓ Using GPU acceleration (CUDA)")
+                    # Show GPU memory info
+                    if torch.cuda.is_available():
+                        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+                        print(f"✓ GPU: {torch.cuda.get_device_name(0)} ({gpu_memory:.1f}GB VRAM)")
                 else:
                     print(f"✓ Using CPU execution")
+                    print(f"⚠️  CUDA not available - check CUDA installation")
             except Exception as onnx_error:
                 # Check if it's an external data issue
                 if ".onnx.data" in str(onnx_error) or "external data" in str(onnx_error).lower():
@@ -214,32 +220,39 @@ class ONNXBenchmarker:
         """Run single inference using PyTorch model or ONNX Runtime fallback"""
         start_time = time.perf_counter()
         
-        if self.torch_model is not None:
-            # Use PyTorch model
-            input_tensor = torch.from_numpy(input_data).to(self.device)
-            
-            with torch.no_grad():
-                output = self.torch_model(input_tensor)
-            
-            # Convert output back to numpy for consistency
-            if isinstance(output, torch.Tensor):
-                output = output.cpu().numpy()
-            elif isinstance(output, (list, tuple)):
-                output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
-        else:
-            # Fallback to ONNX Runtime
-            # Ensure input data type matches what the model expects
-            if input_data.dtype == np.int64:
-                # For language models with integer inputs
-                output = self.session.run([self.output_name], {self.input_name: input_data})
+        try:
+            if self.torch_model is not None:
+                # Use PyTorch model
+                input_tensor = torch.from_numpy(input_data).to(self.device)
+                
+                with torch.no_grad():
+                    output = self.torch_model(input_tensor)
+                
+                # Convert output back to numpy for consistency
+                if isinstance(output, torch.Tensor):
+                    output = output.cpu().numpy()
+                elif isinstance(output, (list, tuple)):
+                    output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
             else:
-                # For other models with float inputs
-                output = self.session.run([self.output_name], {self.input_name: input_data})
-        
-        end_time = time.perf_counter()
-        latency_ms = (end_time - start_time) * 1000
-        
-        return latency_ms, output
+                # Fallback to ONNX Runtime
+                # Ensure input data type matches what the model expects
+                if input_data.dtype == np.int64:
+                    # For language models with integer inputs
+                    output = self.session.run([self.output_name], {self.input_name: input_data})
+                else:
+                    # For other models with float inputs
+                    output = self.session.run([self.output_name], {self.input_name: input_data})
+            
+            end_time = time.perf_counter()
+            latency_ms = (end_time - start_time) * 1000
+            
+            return latency_ms, output
+            
+        except Exception as e:
+            end_time = time.perf_counter()
+            latency_ms = (end_time - start_time) * 1000
+            print(f"   ⚠️  Inference error after {latency_ms:.1f}ms: {e}")
+            raise e
     
     def benchmark(self, warmup_runs: int = 3, timed_runs: int = 100) -> Dict[str, Any]:
         """Run comprehensive benchmark"""
@@ -252,10 +265,15 @@ class ONNXBenchmarker:
         
         # Warmup runs
         print(f"\n🔥 Warming up...")
+        print(f"   This may take a moment for large models...")
         for i in range(warmup_runs):
+            start_warmup = time.perf_counter()
             self.run_inference(dummy_input)
-            if (i + 1) % 10 == 0:
-                print(f"   Warmup {i + 1}/{warmup_runs}")
+            end_warmup = time.perf_counter()
+            warmup_time = (end_warmup - start_warmup) * 1000
+            
+            if (i + 1) % 1 == 0:  # Show progress for every run
+                print(f"   Warmup {i + 1}/{warmup_runs} - {warmup_time:.1f}ms")
         
         # Timed runs
         print(f"\n⏱️  Running timed inference...")
