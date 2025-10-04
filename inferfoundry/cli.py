@@ -45,8 +45,24 @@ class ONNXBenchmarker:
             
             # Try to load the ONNX model for metadata extraction
             try:
-                self.session = ort.InferenceSession(self.model_path)
+                # Configure ONNX Runtime providers (CUDA first if available)
+                providers = []
+                if torch.cuda.is_available():
+                    providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                    print(f"✓ CUDA available - using GPU acceleration")
+                else:
+                    providers = ['CPUExecutionProvider']
+                    print(f"✓ Using CPU execution")
+                
+                self.session = ort.InferenceSession(self.model_path, providers=providers)
                 print(f"✓ ONNX Runtime loaded model successfully")
+                
+                # Show which providers are actually being used
+                active_providers = self.session.get_providers()
+                if 'CUDAExecutionProvider' in active_providers:
+                    print(f"✓ Using GPU acceleration (CUDA)")
+                else:
+                    print(f"✓ Using CPU execution")
             except Exception as onnx_error:
                 # Check if it's an external data issue
                 if ".onnx.data" in str(onnx_error) or "external data" in str(onnx_error).lower():
@@ -273,13 +289,17 @@ class ONNXBenchmarker:
         if self.torch_model is not None:
             runtime = 'PyTorch (converted from ONNX)'
         else:
-            runtime = 'ONNX Runtime (PyTorch conversion failed)'
+            # Check if CUDA is being used for ONNX Runtime
+            if torch.cuda.is_available() and 'CUDAExecutionProvider' in self.session.get_providers():
+                runtime = 'ONNX Runtime with CUDA (PyTorch conversion failed)'
+            else:
+                runtime = 'ONNX Runtime CPU (PyTorch conversion failed)'
         
         results = {
             'model_name': self.model_name,
             'model_path': self.model_path,
             'runtime': runtime,
-            'device': str(self.device) if self.torch_model is not None else 'CPU (ONNX Runtime)',
+            'device': str(self.device) if self.torch_model is not None else ('CUDA (ONNX Runtime)' if torch.cuda.is_available() and 'CUDAExecutionProvider' in self.session.get_providers() else 'CPU (ONNX Runtime)'),
             'input_shape': self.input_shape,
             'warmup_runs': warmup_runs,
             'timed_runs': timed_runs,

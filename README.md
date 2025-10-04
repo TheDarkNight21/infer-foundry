@@ -7,7 +7,7 @@ A powerful CLI tool for benchmarking ONNX models with comprehensive performance 
 - 🚀 **Fast Benchmarking**: Quick and accurate performance measurement
 - 🔄 **ONNX to PyTorch**: Automatically converts ONNX models to PyTorch for execution
 - 📊 **Comprehensive Metrics**: Latency, throughput, and memory usage
-- 🎮 **GPU Support**: CUDA memory monitoring when available
+- 🎮 **GPU Support**: CUDA acceleration for both PyTorch and ONNX Runtime
 - 📄 **Multiple Outputs**: Console reports and JSON export
 - ⚡ **Easy to Use**: Simple CLI interface with sensible defaults
 - 🛡️ **Robust Error Handling**: Clear error messages for missing external data files
