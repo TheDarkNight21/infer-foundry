@@ -8,7 +8,9 @@ onnx2torch>=1.0.0
 torch>=2.0.0
 
 # ONNX Runtime with CUDA support (for GPU acceleration)
-# Install with: pip install onnxruntime-gpu
+# For Windows: pip install onnxruntime-gpu
+# For Linux: pip install onnxruntime-gpu
+# For macOS: Use regular onnxruntime (no CUDA support on macOS)
 onnxruntime-gpu>=1.15.0
 
 # Alternative CPU-only versions (if CUDA is not available)
