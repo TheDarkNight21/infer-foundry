@@ -13,6 +13,15 @@ torch>=2.0.0
 # For macOS: Use regular onnxruntime (no CUDA support on macOS)
 onnxruntime-gpu>=1.15.0
 
+# TensorRT for GPU acceleration (if available)
+# Install with: pip install tensorrt (if available)
+# Note: TensorRT requires NVIDIA GPU and specific CUDA versions
+tensorrt>=8.0.0
+
+# PyCUDA for TensorRT GPU memory management
+# Install with: pip install pycuda
+pycuda>=2021.1
+
 # Alternative CPU-only versions (if CUDA is not available)
 # Uncomment these and comment out the above if you don't have CUDA
 # torch>=2.0.0

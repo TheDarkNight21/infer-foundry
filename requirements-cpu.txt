@@ -11,3 +11,6 @@ torch>=2.0.0
 
 # CPU-only ONNX Runtime
 onnxruntime>=1.15.0
+
+# Note: TensorRT is not available for CPU-only execution
+# TensorRT requires NVIDIA GPU and CUDA support

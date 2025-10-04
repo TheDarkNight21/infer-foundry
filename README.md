@@ -1,16 +1,19 @@
 # InferFoundry
 
-A powerful CLI tool for benchmarking ONNX models with comprehensive performance metrics. Automatically converts ONNX models to PyTorch for execution with fallback to ONNX Runtime when needed.
+A powerful CLI tool for benchmarking ONNX models with comprehensive performance metrics across multiple runtimes. Supports ONNX Runtime and TensorRT for performance comparison.
 
 ## Features
 
-- 🚀 **Fast Benchmarking**: Quick and accurate performance measurement
+- 🚀 **Multi-Runtime Support**: Compare ONNX Runtime vs TensorRT performance
+- ⚡ **Fast Benchmarking**: Quick and accurate performance measurement
 - 🔄 **ONNX to PyTorch**: Automatically converts ONNX models to PyTorch for execution
+- 🎯 **TensorRT Integration**: Direct TensorRT engine building and execution
 - 📊 **Comprehensive Metrics**: Latency, throughput, and memory usage
-- 🎮 **GPU Support**: CUDA acceleration for both PyTorch and ONNX Runtime
+- 🎮 **GPU Support**: CUDA acceleration for both PyTorch, ONNX Runtime, and TensorRT
 - 📄 **Multiple Outputs**: Console reports and JSON export
 - ⚡ **Easy to Use**: Simple CLI interface with sensible defaults
 - 🛡️ **Robust Error Handling**: Clear error messages for missing external data files
+- 📈 **Performance Comparison**: Side-by-side runtime comparison with speedup metrics
 
 ## Installation
 
@@ -27,8 +30,11 @@ pip install -r requirements.txt
 # Or install manually for better control
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install onnxruntime-gpu
+pip install tensorrt pycuda
 pip install -r requirements.txt
 ```
+
+**Note**: TensorRT requires NVIDIA GPU and specific CUDA versions. If TensorRT is not available, the tool will fall back to ONNX Runtime only.
 
 ### CPU Installation (Fallback)
 
@@ -72,8 +78,11 @@ See [MODEL_DOWNLOAD.md](MODEL_DOWNLOAD.md) for more details about available test
 ### Basic Benchmarking
 
 ```bash
-# Benchmark an ONNX model
+# Benchmark an ONNX model with ONNX Runtime
 inferfoundry benchmark --model ./tinyllama.onnx
+
+# Compare ONNX Runtime vs TensorRT
+inferfoundry benchmark --model ./tinyllama.onnx --runtimes onnx,tensorrt
 ```
 
 ### Advanced Options
@@ -82,23 +91,39 @@ inferfoundry benchmark --model ./tinyllama.onnx
 # Custom warmup and run counts
 inferfoundry benchmark --model ./model.onnx --warmup 5 --runs 200
 
+# Test only TensorRT runtime
+inferfoundry benchmark --model ./model.onnx --runtimes tensorrt
+
 # Save results to specific file
-inferfoundry benchmark --model ./model.onnx --output results.json
+inferfoundry benchmark --model ./model.onnx --runtimes onnx,tensorrt --output results.json
 
 # Quiet mode (minimal output)
-inferfoundry benchmark --model ./model.onnx --quiet
+inferfoundry benchmark --model ./model.onnx --runtimes onnx,tensorrt --quiet
+```
+
+### Report Command
+
+```bash
+# Display a report from saved JSON results
+inferfoundry report --path results.json
 ```
 
 ### Command Line Options
 
 - `--model, -m`: Path to ONNX model file (required)
+- `--runtimes, -r`: Comma-separated list of runtimes to test (e.g., onnx,tensorrt) (default: onnx)
 - `--warmup, -w`: Number of warmup runs (default: 3)
-- `--runs, -r`: Number of timed runs (default: 100)
+- `--runs, -n`: Number of timed runs (default: 100)
 - `--output, -o`: Output JSON file path (optional)
 - `--quiet, -q`: Suppress progress output (flag)
 
+### Report Command Options
+
+- `--path, -p`: Path to JSON results file (required)
+
 ## Example Output
 
+### Single Runtime (ONNX)
 ```
 🔄 Loading model...
 ✓ Model loaded: tinyllama
@@ -147,10 +172,40 @@ Input Shape: [1, 512]
 📄 Report saved to: tinyllama_benchmark.json
 ```
 
+### Multi-Runtime Comparison (ONNX vs TensorRT)
+```
+🔄 Running comparison across runtimes: onnx, tensorrt
+
+==================================================
+🚀 Testing ONNX runtime
+==================================================
+✓ ONNX benchmark completed
+
+==================================================
+🚀 Testing TENSORRT runtime
+==================================================
+🔄 Building TensorRT engine from ONNX model...
+✓ TensorRT engine built and saved to: tinyllama.trt
+✓ TensorRT benchmark completed
+
+============================================================
+📊 RUNTIME COMPARISON REPORT
+============================================================
+Model: tinyllama.onnx
+
+Runtime              Latency (ms)     Speedup    
+---------------------------------------------
+TensorRT             8.1              1.63x      
+ONNX                 13.2             baseline   
+============================================================
+📄 Comparison report saved to: tinyllama_comparison.json
+```
+
 ## JSON Output
 
-The tool also generates detailed JSON reports with all metrics:
+The tool generates detailed JSON reports with all metrics:
 
+### Single Runtime Results
 ```json
 {
   "model_name": "tinyllama",
@@ -178,6 +233,17 @@ The tool also generates detailed JSON reports with all metrics:
     "available_gb": 8.7,
     "used_percent": 45.2
   }
+}
+```
+
+### Multi-Runtime Comparison Results
+```json
+{
+  "model": "tinyllama.onnx",
+  "results": [
+    {"runtime": "onnx", "latency_ms": 13.2},
+    {"runtime": "tensorrt", "latency_ms": 8.1}
+  ]
 }
 ```
 
