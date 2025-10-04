@@ -40,7 +40,7 @@ python download_models.py
 
 Then test the CLI:
 ```bash
-inferfoundry benchmark --model ./models/sigmoid.onnx
+inferfoundry benchmark --model ./models/gpt2-small.onnx
 ```
 
 See [MODEL_DOWNLOAD.md](MODEL_DOWNLOAD.md) for more details about available test models.

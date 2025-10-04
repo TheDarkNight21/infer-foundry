@@ -18,6 +18,28 @@ def create_models_directory():
     models_dir.mkdir(exist_ok=True)
     return models_dir
 
+def download_gpt2_small_model(models_dir):
+    """Download a small GPT-2 model from ONNX Model Zoo"""
+    print("📥 Downloading GPT-2 small model...")
+    try:
+        # Small GPT-2 model from ONNX Model Zoo with embedded weights
+        model_url = "https://github.com/onnx/models/raw/main/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx"
+        dest_path = models_dir / "gpt2-small.onnx"
+        
+        response = requests.get(model_url, stream=True)
+        response.raise_for_status()
+        
+        with open(dest_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        print(f"✓ GPT-2 small model saved to: {dest_path}")
+        print(f"✓ Model type: Small GPT-2 language model (better for LLM testing)")
+        return str(dest_path)
+    except Exception as e:
+        print(f"❌ Failed to download GPT-2 small model: {e}")
+        return None
+
 def download_sigmoid_model(models_dir):
     """Download the sigmoid model from ONNX Runtime examples"""
     print("📥 Downloading sigmoid model...")
@@ -120,6 +142,7 @@ def main():
     
     # List of download functions
     download_functions = [
+        download_gpt2_small_model,  # Small language model (better for LLM testing)
         download_sigmoid_model,
         download_linear_regression_model,
         download_mnist_model,

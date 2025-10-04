@@ -21,12 +21,14 @@ This will download multiple small models from the ONNX Model Zoo.
 ## Available Models
 
 ### Simple Download Script
-- **sigmoid.onnx** - Very small model (3x4x5 input) with embedded weights
-  - Perfect for testing
+- **gpt2-small.onnx** - Small GPT-2 language model with embedded weights
+  - Better for LLM testing than sigmoid
   - No external data dependencies
-  - Fast to download and run
+  - More realistic language model for benchmarking
+  - Fallback to sigmoid.onnx if GPT-2 download fails
 
 ### Full Download Script
+- **gpt2-small.onnx** - Small GPT-2 language model (primary recommendation)
 - **sigmoid.onnx** - Simple sigmoid function model
 - **linear_regression.onnx** - Linear regression model
 - **mnist.onnx** - MNIST digit classification model
@@ -37,10 +39,11 @@ This will download multiple small models from the ONNX Model Zoo.
 After downloading models, you can test them with:
 
 ```bash
-# Test with sigmoid model
-inferfoundry benchmark --model ./models/sigmoid.onnx
+# Test with GPT-2 small model (recommended for LLM testing)
+inferfoundry benchmark --model ./models/gpt2-small.onnx
 
 # Test with other models
+inferfoundry benchmark --model ./models/sigmoid.onnx
 inferfoundry benchmark --model ./models/mnist.onnx
 inferfoundry benchmark --model ./models/tiny_yolov3.onnx
 ```
