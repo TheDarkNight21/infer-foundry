@@ -21,7 +21,7 @@ This will download multiple small models from the ONNX Model Zoo.
 ## Available Models
 
 ### Simple Download Script
-- **gpt2-small.onnx** - Small GPT-2 language model with embedded weights
+- **gpt2-small.onnx** - GPT-2 language model with embedded weights (~523MB)
   - Better for LLM testing than sigmoid
   - No external data dependencies
   - More realistic language model for benchmarking

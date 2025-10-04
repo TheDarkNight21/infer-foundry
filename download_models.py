@@ -20,10 +20,11 @@ def create_models_directory():
 
 def download_gpt2_small_model(models_dir):
     """Download a small GPT-2 model from ONNX Model Zoo"""
-    print("📥 Downloading GPT-2 small model...")
+    print("📥 Downloading GPT-2 model...")
+    print("   Note: This model is ~523MB (larger than sigmoid but still manageable)")
     try:
         # Small GPT-2 model from ONNX Model Zoo with embedded weights
-        model_url = "https://github.com/onnx/models/raw/main/text/machine_comprehension/gpt-2/model/gpt2-lm-head-10.onnx"
+        model_url = "https://github.com/onnx/models/raw/main/validated/text/machine_comprehension/gpt-2/model/gpt2-10.onnx"
         dest_path = models_dir / "gpt2-small.onnx"
         
         response = requests.get(model_url, stream=True)
