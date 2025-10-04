@@ -1,14 +1,16 @@
 # InferFoundry
 
-A powerful CLI tool for benchmarking ONNX models with comprehensive performance metrics.
+A powerful CLI tool for benchmarking ONNX models with comprehensive performance metrics. Automatically converts ONNX models to PyTorch for execution with fallback to ONNX Runtime when needed.
 
 ## Features
 
 - 🚀 **Fast Benchmarking**: Quick and accurate performance measurement
+- 🔄 **ONNX to PyTorch**: Automatically converts ONNX models to PyTorch for execution
 - 📊 **Comprehensive Metrics**: Latency, throughput, and memory usage
 - 🎮 **GPU Support**: CUDA memory monitoring when available
 - 📄 **Multiple Outputs**: Console reports and JSON export
 - ⚡ **Easy to Use**: Simple CLI interface with sensible defaults
+- 🛡️ **Robust Error Handling**: Clear error messages for missing external data files
 
 ## Installation
 
@@ -23,6 +25,25 @@ pip install -e .
 # Or install dependencies directly
 pip install -r requirements.txt
 ```
+
+## Quick Start with Test Models
+
+To get started quickly, download some small test models:
+
+```bash
+# Download tiny ONNX models with embedded weights
+python simple_download.py
+
+# Or download multiple models
+python download_models.py
+```
+
+Then test the CLI:
+```bash
+inferfoundry benchmark --model ./models/sigmoid.onnx
+```
+
+See [MODEL_DOWNLOAD.md](MODEL_DOWNLOAD.md) for more details about available test models.
 
 ## Usage
 

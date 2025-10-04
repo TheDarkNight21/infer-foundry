@@ -28,11 +28,44 @@ class ONNXBenchmarker:
         self.model_name = None
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
+    def check_external_data_files(self) -> bool:
+        """Check if external data files exist"""
+        data_file = f"{self.model_path}.data"
+        return os.path.exists(data_file)
+        
     def load_model(self) -> None:
         """Load ONNX model, extract metadata, and convert to PyTorch"""
         try:
-            # Load the ONNX model for metadata extraction
-            self.session = ort.InferenceSession(self.model_path)
+            # Check for external data files first
+            if not self.check_external_data_files():
+                print(f"⚠️  Checking for external data files...")
+                print(f"   Looking for: {self.model_path}.data")
+                print(f"   File not found - model may use embedded weights or external data is missing")
+            
+            # Try to load the ONNX model for metadata extraction
+            try:
+                self.session = ort.InferenceSession(self.model_path)
+                print(f"✓ ONNX Runtime loaded model successfully")
+            except Exception as onnx_error:
+                # Check if it's an external data issue
+                if ".onnx.data" in str(onnx_error) or "external data" in str(onnx_error).lower():
+                    print(f"❌ ONNX model has external data dependencies but .onnx.data file is missing")
+                    print(f"   Error: {onnx_error}")
+                    print(f"")
+                    print(f"🔧 SOLUTION:")
+                    print(f"   This ONNX model was saved with external data storage.")
+                    print(f"   You need both files:")
+                    print(f"   1. {self.model_path}")
+                    print(f"   2. {self.model_path}.data")
+                    print(f"")
+                    print(f"   Please download the .onnx.data file and place it in the same directory.")
+                    print(f"   The .onnx.data file contains the model weights and is required for loading.")
+                    print(f"")
+                    print(f"   Alternative: If you have access to the original model, try saving it")
+                    print(f"   with embedded weights instead of external data storage.")
+                    raise RuntimeError(f"Missing .onnx.data file. Please download and place {self.model_path}.data in the same directory.")
+                else:
+                    raise onnx_error
             
             # Get model metadata
             self.model_name = Path(self.model_path).stem
