@@ -159,8 +159,25 @@ class ONNXBenchmarker:
             else:
                 shape.append(dim)
         
-        # Create dummy input
-        dummy_input = np.random.randn(*shape).astype(np.float32)
+        # Check if this is a language model (GPT-2, etc.) that expects integer tokens
+        is_language_model = (
+            'gpt' in self.model_name.lower() or 
+            'input1' in self.input_name.lower() or
+            'input_ids' in self.input_name.lower() or
+            'token' in self.input_name.lower()
+        )
+        
+        if is_language_model:
+            # For language models, create integer token IDs
+            # Use a reasonable vocabulary size (GPT-2 has ~50k tokens)
+            vocab_size = 50257  # GPT-2 vocabulary size
+            dummy_input = np.random.randint(0, vocab_size, size=shape, dtype=np.int64)
+            print(f"   Using integer tokens for language model (vocab_size: {vocab_size})")
+        else:
+            # For other models, use float32
+            dummy_input = np.random.randn(*shape).astype(np.float32)
+            print(f"   Using float32 input for model")
+        
         return dummy_input
     
     def get_gpu_memory_usage(self) -> Dict[str, float]:
@@ -195,7 +212,13 @@ class ONNXBenchmarker:
                 output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
         else:
             # Fallback to ONNX Runtime
-            output = self.session.run([self.output_name], {self.input_name: input_data})
+            # Ensure input data type matches what the model expects
+            if input_data.dtype == np.int64:
+                # For language models with integer inputs
+                output = self.session.run([self.output_name], {self.input_name: input_data})
+            else:
+                # For other models with float inputs
+                output = self.session.run([self.output_name], {self.input_name: input_data})
         
         end_time = time.perf_counter()
         latency_ms = (end_time - start_time) * 1000
