@@ -53,10 +53,24 @@ class ONNXBenchmarker:
             
             # Convert ONNX model to PyTorch
             print(f"🔄 Converting ONNX model to PyTorch...")
-            self.torch_model = convert(self.model_path)
-            self.torch_model.to(self.device)
-            self.torch_model.eval()
-            print(f"✓ Model converted to PyTorch and moved to {self.device}")
+            try:
+                self.torch_model = convert(self.model_path)
+                self.torch_model.to(self.device)
+                self.torch_model.eval()
+                print(f"✓ Model converted to PyTorch and moved to {self.device}")
+            except Exception as convert_error:
+                # If onnx2torch fails, try to handle external data issues
+                if "external data" in str(convert_error).lower() or ".onnx.data" in str(convert_error):
+                    print(f"⚠️  ONNX model may have external data dependencies")
+                    print(f"   Error: {convert_error}")
+                    print(f"   Trying alternative approach...")
+                    
+                    # Try to load with ONNX Runtime and use it directly instead of converting
+                    print(f"   Falling back to ONNX Runtime for inference...")
+                    print(f"   Note: This may be due to missing .onnx.data file or external data dependencies")
+                    self.torch_model = None  # We'll use ONNX Runtime instead
+                else:
+                    raise convert_error
             
         except Exception as e:
             raise RuntimeError(f"Failed to load and convert model: {e}")
@@ -96,24 +110,27 @@ class ONNXBenchmarker:
         return gpu_info
     
     def run_inference(self, input_data: np.ndarray) -> Tuple[float, Any]:
-        """Run single inference using PyTorch model and return timing + output"""
-        # Convert numpy array to PyTorch tensor
-        input_tensor = torch.from_numpy(input_data).to(self.device)
-        
+        """Run single inference using PyTorch model or ONNX Runtime fallback"""
         start_time = time.perf_counter()
         
-        with torch.no_grad():
-            output = self.torch_model(input_tensor)
+        if self.torch_model is not None:
+            # Use PyTorch model
+            input_tensor = torch.from_numpy(input_data).to(self.device)
+            
+            with torch.no_grad():
+                output = self.torch_model(input_tensor)
+            
+            # Convert output back to numpy for consistency
+            if isinstance(output, torch.Tensor):
+                output = output.cpu().numpy()
+            elif isinstance(output, (list, tuple)):
+                output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
+        else:
+            # Fallback to ONNX Runtime
+            output = self.session.run([self.output_name], {self.input_name: input_data})
         
         end_time = time.perf_counter()
-        
         latency_ms = (end_time - start_time) * 1000
-        
-        # Convert output back to numpy for consistency
-        if isinstance(output, torch.Tensor):
-            output = output.cpu().numpy()
-        elif isinstance(output, (list, tuple)):
-            output = [t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in output]
         
         return latency_ms, output
     
@@ -161,11 +178,14 @@ class ONNXBenchmarker:
         # Get system memory info
         memory_info = psutil.virtual_memory()
         
+        # Determine runtime based on whether conversion was successful
+        runtime = 'PyTorch (converted from ONNX)' if self.torch_model is not None else 'ONNX Runtime (fallback)'
+        
         results = {
             'model_name': self.model_name,
             'model_path': self.model_path,
-            'runtime': 'PyTorch (converted from ONNX)',
-            'device': str(self.device),
+            'runtime': runtime,
+            'device': str(self.device) if self.torch_model is not None else 'CPU (ONNX Runtime)',
             'input_shape': self.input_shape,
             'warmup_runs': warmup_runs,
             'timed_runs': timed_runs,
