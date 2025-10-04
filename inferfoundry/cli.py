@@ -6,6 +6,7 @@ import click
 import json
 import os
 import time
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import numpy as np
@@ -87,23 +88,57 @@ class ONNXBenchmarker:
             # Convert ONNX model to PyTorch
             print(f"🔄 Converting ONNX model to PyTorch...")
             try:
+                # Try to convert with onnx2torch
                 self.torch_model = convert(self.model_path)
                 self.torch_model.to(self.device)
                 self.torch_model.eval()
                 print(f"✓ Model converted to PyTorch and moved to {self.device}")
             except Exception as convert_error:
-                # If onnx2torch fails, try to handle external data issues
-                if "external data" in str(convert_error).lower() or ".onnx.data" in str(convert_error):
+                # Check for specific error types
+                error_str = str(convert_error).lower()
+                
+                if "permission denied" in error_str or "errno 13" in error_str:
+                    print(f"⚠️  Permission denied during PyTorch conversion")
+                    print(f"   Error: {convert_error}")
+                    print(f"   This may be due to temporary file creation restrictions")
+                    print(f"   Trying with different temporary directory...")
+                    
+                    # Try with a different temporary directory
+                    try:
+                        with tempfile.TemporaryDirectory() as temp_dir:
+                            # Set temporary directory environment variable
+                            old_temp = os.environ.get('TMPDIR', os.environ.get('TEMP', os.environ.get('TMP')))
+                            os.environ['TMPDIR'] = temp_dir
+                            os.environ['TEMP'] = temp_dir
+                            os.environ['TMP'] = temp_dir
+                            
+                            self.torch_model = convert(self.model_path)
+                            self.torch_model.to(self.device)
+                            self.torch_model.eval()
+                            print(f"✓ Model converted to PyTorch using alternative temp directory")
+                            
+                            # Restore original temp directory
+                            if old_temp:
+                                os.environ['TMPDIR'] = old_temp
+                                os.environ['TEMP'] = old_temp
+                                os.environ['TMP'] = old_temp
+                    except Exception as temp_error:
+                        print(f"   Alternative temp directory also failed: {temp_error}")
+                        print(f"   Falling back to ONNX Runtime for inference...")
+                        print(f"   Note: ONNX Runtime will be used instead of PyTorch")
+                        self.torch_model = None
+                elif "external data" in error_str or ".onnx.data" in error_str:
                     print(f"⚠️  ONNX model may have external data dependencies")
                     print(f"   Error: {convert_error}")
                     print(f"   Trying alternative approach...")
-                    
-                    # Try to load with ONNX Runtime and use it directly instead of converting
                     print(f"   Falling back to ONNX Runtime for inference...")
                     print(f"   Note: This may be due to missing .onnx.data file or external data dependencies")
-                    self.torch_model = None  # We'll use ONNX Runtime instead
+                    self.torch_model = None
                 else:
-                    raise convert_error
+                    print(f"⚠️  PyTorch conversion failed: {convert_error}")
+                    print(f"   Falling back to ONNX Runtime for inference...")
+                    print(f"   Note: ONNX Runtime will be used instead of PyTorch")
+                    self.torch_model = None
             
         except Exception as e:
             raise RuntimeError(f"Failed to load and convert model: {e}")
@@ -212,7 +247,10 @@ class ONNXBenchmarker:
         memory_info = psutil.virtual_memory()
         
         # Determine runtime based on whether conversion was successful
-        runtime = 'PyTorch (converted from ONNX)' if self.torch_model is not None else 'ONNX Runtime (fallback)'
+        if self.torch_model is not None:
+            runtime = 'PyTorch (converted from ONNX)'
+        else:
+            runtime = 'ONNX Runtime (PyTorch conversion failed)'
         
         results = {
             'model_name': self.model_name,
