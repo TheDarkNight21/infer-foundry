@@ -440,6 +440,9 @@ class TensorRTRunner:
             # Create TensorRT logger
             logger = trt.Logger(trt.Logger.WARNING)
             
+            # Print TensorRT version for debugging
+            print(f"   TensorRT version: {trt.__version__}")
+            
             # Create builder and network
             builder = trt.Builder(logger)
             network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
@@ -455,13 +458,59 @@ class TensorRTRunner:
             
             # Configure builder
             config = builder.create_builder_config()
-            config.max_workspace_size = 1 << 30  # 1GB
+            
+            # Debug: Print available attributes on BuilderConfig
+            print(f"   BuilderConfig type: {type(config)}")
+            print(f"   BuilderConfig attributes: {[attr for attr in dir(config) if not attr.startswith('_')]}")
+            
+            # Set workspace size - handle different TensorRT versions
+            workspace_size_set = False
+            
+            # Try different approaches based on TensorRT version
+            if hasattr(config, 'set_memory_pool_limit'):
+                try:
+                    # TensorRT 8.5+ with memory pool API
+                    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)  # 1GB
+                    print("   Using TensorRT 8.5+ memory pool API")
+                    workspace_size_set = True
+                except (AttributeError, TypeError) as e:
+                    print(f"   Memory pool API failed: {e}")
+            
+            if not workspace_size_set and hasattr(config, 'max_workspace_size'):
+                try:
+                    # TensorRT 8.0-8.4 with max_workspace_size
+                    config.max_workspace_size = 1 << 30  # 1GB
+                    print("   Using TensorRT 8.0-8.4 max_workspace_size API")
+                    workspace_size_set = True
+                except AttributeError as e:
+                    print(f"   max_workspace_size API failed: {e}")
+            
+            if not workspace_size_set:
+                print("   Warning: Could not set workspace size - using TensorRT default")
+                print("   This may limit performance but should still work")
+                print("   If you encounter memory issues, try reducing model size or batch size")
+                
+                # Try to set some basic config options that might help
+                try:
+                    if hasattr(config, 'set_flag'):
+                        config.set_flag(trt.BuilderFlag.FP16)  # Enable FP16 for better performance
+                        print("   Enabled FP16 precision for better performance")
+                except Exception as e:
+                    print(f"   Could not enable FP16: {e}")
             
             # Build engine
-            self.engine = builder.build_engine(network, config)
+            try:
+                self.engine = builder.build_engine(network, config)
+            except Exception as e:
+                print(f"❌ TensorRT engine building failed: {e}")
+                print(f"   This might be due to:")
+                print(f"   - Incompatible TensorRT version")
+                print(f"   - Insufficient GPU memory")
+                print(f"   - Unsupported ONNX operations")
+                raise RuntimeError(f"Failed to build TensorRT engine: {e}")
             
             if self.engine is None:
-                raise RuntimeError("Failed to build TensorRT engine")
+                raise RuntimeError("Failed to build TensorRT engine - builder returned None")
             
             # Save engine
             with open(engine_path, 'wb') as f:
